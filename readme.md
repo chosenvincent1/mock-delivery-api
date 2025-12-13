@@ -36,8 +36,53 @@ GET list endpoints (`/deliveries`, `/drivers`, `/parcels`, `/hubs`) have a **10%
 ```json
 { "error": "Random simulated error" }
 ```
-
 ---
+
+# Authentication flow
+
+All API endpoints (except login) require authentication. Follow the steps below to access protected resources.
+
+### Step 1: Log in to obtain an access token
+
+Call the login endpoint with a username and password to receive an access token.
+
+**Request**
+
+```http
+POST http://localhost:4000/auth/login
+Content-Type: application/json
+```
+
+**Request body**
+
+```json
+{
+  "username": "demo",
+  "password": "demo"
+}
+```
+
+**Response**
+
+```json
+{
+  "token": "testtoken123",
+  "user": "mock-user"
+}
+```
+
+### Step 2: Use the token for all subsequent requests
+
+Include the token in the `Authorization` header for every API request.
+
+**Example: Get deliveries**
+
+```http
+GET http://localhost:4000/deliveries
+Authorization: Bearer testtoken123
+```
+
+If the `Authorization` header is missing or invalid, the API will return a `401 Unauthorized` response.
 
 # 📄 Pagination
 
