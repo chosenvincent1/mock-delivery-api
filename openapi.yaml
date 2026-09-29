@@ -1,0 +1,1778 @@
+openapi: 3.0.3
+info:
+  title: Delivery API
+  version: 1.0.0
+  description: |
+    The Delivery API is a mock logistics API for managing deliveries, drivers, parcels, and distribution hubs. Use it to practice working with a REST API or to explore how each endpoint behaves.
+
+    ## Authentication
+    All endpoints except `POST /auth/login` require a bearer token in the `Authorization` header.
+
+    Because this is a mock API, every user gets the same token: `testtoken123`. You can use it right away, like this:
+      
+    `Authorization: Bearer testtoken123`
+
+    To see how the login flow works, send any username and password to `POST /auth/login`. It returns the same token.
+
+    To use the token in this reference, click **Authorize** and paste `testtoken123`.
+
+    
+    ## Things to know
+    - **Data isn't saved.** POST, PATCH, and DELETE requests return a success response but don't change any data.
+    - **Random errors are intentional.** About 10% of GET requests return a `500` error to simulate real-world failures. Retry the request if you get one.
+    - **The first request may be slow.** The API runs on Render's free tier and sleeps when idle, so the first request after a break can take 30 seconds or more.
+  contact:
+    name: Chosen Vincent
+    url: https://www.linkedin.com/in/chosenvincent1
+servers:
+  - url: https://mock-delivery-api.onrender.com
+    description: Live server
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+    description: Get a token to access the API.
+  - name: Deliveries
+    description: Create, retrieve, filter, update, and delete deliveries.
+  - name: Drivers
+    description: Manage drivers and filter them by location, vehicle, availability, experience, or rating.
+  - name: Parcels
+    description: Manage parcels and filter them by description, weight, delivery, or destination hub.
+  - name: Hubs
+    description: Manage distribution hubs and filter them by location or capacity.
+  - name: Reports
+    description: Get summary counts across deliveries, drivers, parcels, and hubs.
+  - name: Assignments
+    description: Assign drivers to deliveries and view assignments by driver or hub.
+  - name: Tracking
+    description: Check a delivery's status or a parcel's location.
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and get a token
+      description: Returns a bearer token for accessing the API. Any username and password work, as long as both are included. Every user gets the same token.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  description: Any username.
+                  example: demo
+                password:
+                  type: string
+                  description: Any password.
+                  example: password123
+      responses:
+        '200':
+          description: Login successful. Returns the token to use in the `Authorization` header.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: The bearer token.
+                    example: testtoken123
+                  user:
+                    type: string
+                    description: The logged-in user.
+                    example: mock-user
+        '400':
+          description: The username or password is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Missing username or password
+
+  /deliveries:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries
+      description: Returns a paginated list of deliveries. Use the query parameters to filter by status, city, or country. Filters are case-sensitive and must match exactly.
+      operationId: listDeliveries
+      parameters:
+        - name: page
+          in: query
+          description: Page number to return.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of deliveries per page.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+        - name: status
+          in: query
+          description: Return only deliveries with this status.
+          schema:
+            type: string
+            enum: [pending, in_transit, delivered]
+        - name: city
+          in: query
+          description: Return only deliveries in this city, for example `London`.
+          schema:
+            type: string
+        - name: country
+          in: query
+          description: Return only deliveries in this country, for example `UK`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A page of deliveries.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Pagination'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags: [Deliveries]
+      summary: Create a delivery
+      description: Creates a new delivery. Because this is a mock API, the delivery isn't saved and the request body isn't validated. The API always returns a success response.
+      operationId: createDelivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Delivery'
+      responses:
+        '200':
+          description: The delivery was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  
+  /deliveries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the delivery.
+        schema:
+          type: integer
+          example: 1
+    get:
+      tags: [Deliveries]
+      summary: Get a delivery
+      description: Returns a single delivery by its ID. If no delivery matches the ID, the API returns an empty object instead of an error.
+      operationId: getDelivery
+      responses:
+        '200':
+          description: The delivery, or an empty object if the ID doesn't exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [Deliveries]
+      summary: Update a delivery
+      description: Updates one or more fields of a delivery. Include only the fields you want to change. Because this is a mock API, the change isn't saved and the API always returns a success response.
+      operationId: updateDelivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Delivery'
+            example:
+              status: delivered
+      responses:
+        '200':
+          description: The delivery was updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Deliveries]
+      summary: Delete a delivery
+      description: Deletes a delivery by its ID. Because this is a mock API, nothing is deleted and the API always returns a success response.
+      operationId: deleteDelivery
+      responses:
+        '200':
+          description: The delivery was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deliveries/status/{status}:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries by status
+      description: Returns all deliveries with the given status. Results aren't paginated. To filter with pagination, use `GET /deliveries?status=` instead.
+      operationId: listDeliveriesByStatus
+      parameters:
+        - name: status
+          in: path
+          required: true
+          description: Delivery status to filter by.
+          schema:
+            type: string
+            enum: [pending, in_transit, delivered]
+      responses:
+        '200':
+          description: A list of matching deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /deliveries/city/{city}:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries by city
+      description: Returns all deliveries in the given city. The city name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /deliveries?city=` instead.
+      operationId: listDeliveriesByCity
+      parameters:
+        - name: city
+          in: path
+          required: true
+          description: City to filter by.
+          schema:
+            type: string
+            example: London
+      responses:
+        '200':
+          description: A list of matching deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /deliveries/country/{country}:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries by country
+      description: Returns all deliveries in the given country. The country name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /deliveries?country=` instead.
+      operationId: listDeliveriesByCountry
+      parameters:
+        - name: country
+          in: path
+          required: true
+          description: Country to filter by.
+          schema:
+            type: string
+            example: UK
+      responses:
+        '200':
+          description: A list of matching deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /deliveries/customer/{customer}:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries by customer
+      description: Returns all deliveries for the given customer. The name is case-sensitive and must match exactly. Results aren't paginated.
+      operationId: listDeliveriesByCustomer
+      parameters:
+        - name: customer
+          in: path
+          required: true
+          description: Customer name to filter by.
+          schema:
+            type: string
+            example: Customer 1
+      responses:
+        '200':
+          description: A list of matching deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /deliveries/date/{date}:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries by date
+      description: Returns all deliveries scheduled for the given date. Results aren't paginated.
+      operationId: listDeliveriesByDate
+      parameters:
+        - name: date
+          in: path
+          required: true
+          description: Delivery date, in YYYY-MM-DD format.
+          schema:
+            type: string
+            format: date
+            example: '2025-12-01'
+      responses:
+        '200':
+          description: A list of matching deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /deliveries/range/{start}/{end}:
+    get:
+      tags: [Deliveries]
+      summary: List deliveries in a date range
+      description: Returns all deliveries scheduled between two dates, including both the start and end dates. Results aren't paginated.
+      operationId: listDeliveriesByDateRange
+      parameters:
+        - name: start
+          in: path
+          required: true
+          description: First date in the range, in YYYY-MM-DD format.
+          schema:
+            type: string
+            format: date
+            example: '2025-12-01'
+        - name: end
+          in: path
+          required: true
+          description: Last date in the range, in YYYY-MM-DD format.
+          schema:
+            type: string
+            format: date
+            example: '2025-12-07'
+      responses:
+        '200':
+          description: A list of matching deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /drivers:
+    get:
+      tags: [Drivers]
+      summary: List drivers
+      description: Returns a paginated list of drivers. Use the query parameters to filter by vehicle, state, country, or car model. Filters are case-sensitive and must match exactly.
+      operationId: listDrivers
+      parameters:
+        - name: page
+          in: query
+          description: Page number to return.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of drivers per page.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+        - name: vehicle
+          in: query
+          description: Return only drivers with this vehicle type.
+          schema:
+            type: string
+            enum: [Bike, Car, Van]
+        - name: state
+          in: query
+          description: Return only drivers in this state or region, for example `California`.
+          schema:
+            type: string
+        - name: country
+          in: query
+          description: Return only drivers in this country, for example `USA`.
+          schema:
+            type: string
+        - name: carModel
+          in: query
+          description: Return only drivers with this vehicle model, for example `Volvo`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A page of drivers.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Pagination'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Drivers]
+      summary: Create a driver
+      description: Creates a new driver. Because this is a mock API, the driver isn't saved and the request body isn't validated. The API always returns a success response.
+      operationId: createDriver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Driver'
+      responses:
+        '200':
+          description: The driver was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /drivers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the driver.
+        schema:
+          type: integer
+          example: 1
+    get:
+      tags: [Drivers]
+      summary: Get a driver
+      description: Returns a single driver by their ID. If no driver matches the ID, the API returns an empty object instead of an error.
+      operationId: getDriver
+      responses:
+        '200':
+          description: The driver, or an empty object if the ID doesn't exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [Drivers]
+      summary: Update a driver
+      description: Updates one or more fields of a driver. Include only the fields you want to change. Because this is a mock API, the change isn't saved and the API always returns a success response.
+      operationId: updateDriver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Driver'
+            example:
+              availability: busy
+      responses:
+        '200':
+          description: The driver was updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Drivers]
+      summary: Delete a driver
+      description: Deletes a driver by their ID. Because this is a mock API, nothing is deleted and the API always returns a success response.
+      operationId: deleteDriver
+      responses:
+        '200':
+          description: The driver was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  
+  /drivers/state/{state}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by state
+      description: Returns all drivers in the given state or region. The name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /drivers?state=` instead.
+      operationId: listDriversByState
+      parameters:
+        - name: state
+          in: path
+          required: true
+          description: State or region to filter by.
+          schema:
+            type: string
+            example: California
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /drivers/country/{country}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by country
+      description: Returns all drivers in the given country. The name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /drivers?country=` instead.
+      operationId: listDriversByCountry
+      parameters:
+        - name: country
+          in: path
+          required: true
+          description: Country to filter by.
+          schema:
+            type: string
+            example: USA
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /drivers/vehicle/{vehicle}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by vehicle type
+      description: Returns all drivers who use the given vehicle type. Results aren't paginated. To filter with pagination, use `GET /drivers?vehicle=` instead.
+      operationId: listDriversByVehicle
+      parameters:
+        - name: vehicle
+          in: path
+          required: true
+          description: Vehicle type to filter by.
+          schema:
+            type: string
+            enum: [Bike, Car, Van]
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /drivers/car/{carModel}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by vehicle model
+      description: Returns all drivers with the given vehicle model. The model name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /drivers?carModel=` instead.
+      operationId: listDriversByCarModel
+      parameters:
+        - name: carModel
+          in: path
+          required: true
+          description: Vehicle model to filter by.
+          schema:
+            type: string
+            example: Volvo
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /drivers/availability/{status}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by availability
+      description: Returns all drivers with the given availability. Results aren't paginated.
+      operationId: listDriversByAvailability
+      parameters:
+        - name: status
+          in: path
+          required: true
+          description: Availability to filter by.
+          schema:
+            type: string
+            enum: [available, busy]
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /drivers/experience/{years}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by minimum experience
+      description: Returns all drivers with at least the given number of years of experience. Results aren't paginated.
+      operationId: listDriversByExperience
+      parameters:
+        - name: years
+          in: path
+          required: true
+          description: Minimum years of experience.
+          schema:
+            type: integer
+            minimum: 1
+            example: 5
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /drivers/rating/{min}:
+    get:
+      tags: [Drivers]
+      summary: List drivers by minimum rating
+      description: Returns all drivers with a rating equal to or higher than the given value. Results aren't paginated. Ratings are randomly generated each time the server restarts, so results change between restarts.
+      operationId: listDriversByRating
+      parameters:
+        - name: min
+          in: path
+          required: true
+          description: Minimum rating, from 0.0 to 5.0.
+          schema:
+            type: number
+            minimum: 0
+            maximum: 5
+            example: 4.5
+      responses:
+        '200':
+          description: A list of matching drivers. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Driver'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /parcels:
+    get:
+      tags: [Parcels]
+      summary: List parcels
+      description: Returns a paginated list of parcels. Use the query parameters to filter by description or weight range. The description filter is case-sensitive and must match exactly.
+      operationId: listParcels
+      parameters:
+        - name: page
+          in: query
+          description: Page number to return.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of parcels per page.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+        - name: description
+          in: query
+          description: Return only parcels with this description, for example `Electronics`.
+          schema:
+            type: string
+        - name: weightMin
+          in: query
+          description: Return only parcels that weigh at least this many kilograms.
+          schema:
+            type: number
+            minimum: 0
+        - name: weightMax
+          in: query
+          description: Return only parcels that weigh at most this many kilograms.
+          schema:
+            type: number
+            minimum: 0
+      responses:
+        '200':
+          description: A page of parcels.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Pagination'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Parcels]
+      summary: Create a parcel
+      description: Creates a new parcel. Because this is a mock API, the parcel isn't saved and the request body isn't validated. The API always returns a success response.
+      operationId: createParcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Parcel'
+      responses:
+        '200':
+          description: The parcel was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /parcels/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the parcel.
+        schema:
+          type: integer
+          example: 1
+    get:
+      tags: [Parcels]
+      summary: Get a parcel
+      description: Returns a single parcel by its ID. If no parcel matches the ID, the API returns an empty object instead of an error.
+      operationId: getParcel
+      responses:
+        '200':
+          description: The parcel, or an empty object if the ID doesn't exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [Parcels]
+      summary: Update a parcel
+      description: Updates one or more fields of a parcel. Include only the fields you want to change. Because this is a mock API, the change isn't saved and the API always returns a success response.
+      operationId: updateParcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Parcel'
+            example:
+              destinationHubId: 3
+      responses:
+        '200':
+          description: The parcel was updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Parcels]
+      summary: Delete a parcel
+      description: Deletes a parcel by its ID. Because this is a mock API, nothing is deleted and the API always returns a success response.
+      operationId: deleteParcel
+      responses:
+        '200':
+          description: The parcel was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /parcels/description/{description}:
+    get:
+      tags: [Parcels]
+      summary: List parcels by description
+      description: Returns all parcels with the given description. The description is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /parcels?description=` instead.
+      operationId: listParcelsByDescription
+      parameters:
+        - name: description
+          in: path
+          required: true
+          description: Parcel description to filter by.
+          schema:
+            type: string
+            example: Electronics
+      responses:
+        '200':
+          description: A list of matching parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /parcels/weight/min/{min}/max/{max}:
+    get:
+      tags: [Parcels]
+      summary: List parcels in a weight range
+      description: Returns all parcels that weigh between the minimum and maximum values, including both. Results aren't paginated. To filter with pagination, use `GET /parcels?weightMin=&weightMax=` instead.
+      operationId: listParcelsByWeightRange
+      parameters:
+        - name: min
+          in: path
+          required: true
+          description: Minimum weight in kilograms.
+          schema:
+            type: number
+            minimum: 0
+            example: 2
+        - name: max
+          in: path
+          required: true
+          description: Maximum weight in kilograms.
+          schema:
+            type: number
+            minimum: 0
+            example: 4
+      responses:
+        '200':
+          description: A list of matching parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /parcels/weight/min/{min}:
+    get:
+      tags: [Parcels]
+      summary: List parcels by minimum weight
+      description: Returns all parcels that weigh at least the given value. Results aren't paginated. To filter with pagination, use `GET /parcels?weightMin=` instead.
+      operationId: listParcelsByMinWeight
+      parameters:
+        - name: min
+          in: path
+          required: true
+          description: Minimum weight in kilograms.
+          schema:
+            type: number
+            minimum: 0
+            example: 3
+      responses:
+        '200':
+          description: A list of matching parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /parcels/weight/max/{max}:
+    get:
+      tags: [Parcels]
+      summary: List parcels by maximum weight
+      description: Returns all parcels that weigh at most the given value. Results aren't paginated. To filter with pagination, use `GET /parcels?weightMax=` instead.
+      operationId: listParcelsByMaxWeight
+      parameters:
+        - name: max
+          in: path
+          required: true
+          description: Maximum weight in kilograms.
+          schema:
+            type: number
+            minimum: 0
+            example: 2
+      responses:
+        '200':
+          description: A list of matching parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /parcels/delivery/{deliveryId}:
+    get:
+      tags: [Parcels]
+      summary: List parcels by delivery
+      description: Returns all parcels that belong to the given delivery. Results aren't paginated.
+      operationId: listParcelsByDelivery
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          description: ID of the delivery.
+          schema:
+            type: integer
+            example: 10
+      responses:
+        '200':
+          description: A list of matching parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /parcels/hub/{hubId}:
+    get:
+      tags: [Parcels]
+      summary: List parcels by destination hub
+      description: Returns all parcels headed to the given hub. Results aren't paginated.
+      operationId: listParcelsByHub
+      parameters:
+        - name: hubId
+          in: path
+          required: true
+          description: ID of the destination hub.
+          schema:
+            type: integer
+            example: 4
+      responses:
+        '200':
+          description: A list of matching parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /hubs:
+    get:
+      tags: [Hubs]
+      summary: List hubs
+      description: Returns a paginated list of hubs. Use the query parameters to filter by city, country, region, or capacity range. Text filters are case-sensitive and must match exactly.
+      operationId: listHubs
+      parameters:
+        - name: page
+          in: query
+          description: Page number to return.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of hubs per page.
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+        - name: city
+          in: query
+          description: Return only hubs in this city, for example `London`.
+          schema:
+            type: string
+        - name: country
+          in: query
+          description: Return only hubs in this country, for example `UK`.
+          schema:
+            type: string
+        - name: region
+          in: query
+          description: Return only hubs in this region, for example `Europe`.
+          schema:
+            type: string
+        - name: capacityMin
+          in: query
+          description: Return only hubs that can hold at least this many parcels.
+          schema:
+            type: integer
+            minimum: 0
+        - name: capacityMax
+          in: query
+          description: Return only hubs that can hold at most this many parcels.
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: A page of hubs.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Pagination'
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Hub'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Hubs]
+      summary: Create a hub
+      description: Creates a new hub. Because this is a mock API, the hub isn't saved and the request body isn't validated. The API always returns a success response.
+      operationId: createHub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hub'
+      responses:
+        '200':
+          description: The hub was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /hubs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID of the hub.
+        schema:
+          type: integer
+          example: 1
+    get:
+      tags: [Hubs]
+      summary: Get a hub
+      description: Returns a single hub by its ID. If no hub matches the ID, the API returns an empty object instead of an error.
+      operationId: getHub
+      responses:
+        '200':
+          description: The hub, or an empty object if the ID doesn't exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hub'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    patch:
+      tags: [Hubs]
+      summary: Update a hub
+      description: Updates one or more fields of a hub. Include only the fields you want to change. Because this is a mock API, the change isn't saved and the API always returns a success response.
+      operationId: updateHub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Hub'
+            example:
+              capacity: 200
+      responses:
+        '200':
+          description: The hub was updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Hubs]
+      summary: Delete a hub
+      description: Deletes a hub by its ID. Because this is a mock API, nothing is deleted and the API always returns a success response.
+      operationId: deleteHub
+      responses:
+        '200':
+          description: The hub was deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /hubs/city/{city}:
+    get:
+      tags: [Hubs]
+      summary: List hubs by city
+      description: Returns all hubs in the given city. The city name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /hubs?city=` instead.
+      operationId: listHubsByCity
+      parameters:
+        - name: city
+          in: path
+          required: true
+          description: City to filter by.
+          schema:
+            type: string
+            example: London
+      responses:
+        '200':
+          description: A list of matching hubs. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hub'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /hubs/country/{country}:
+    get:
+      tags: [Hubs]
+      summary: List hubs by country
+      description: Returns all hubs in the given country. The country name is case-sensitive and must match exactly. Results aren't paginated. To filter with pagination, use `GET /hubs?country=` instead.
+      operationId: listHubsByCountry
+      parameters:
+        - name: country
+          in: path
+          required: true
+          description: Country to filter by.
+          schema:
+            type: string
+            example: UK
+      responses:
+        '200':
+          description: A list of matching hubs. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hub'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /hubs/capacity/min/{min}/max/{max}:
+    get:
+      tags: [Hubs]
+      summary: List hubs in a capacity range
+      description: Returns all hubs with a capacity between the minimum and maximum values, including both. Results aren't paginated. To filter with pagination, use `GET /hubs?capacityMin=&capacityMax=` instead.
+      operationId: listHubsByCapacityRange
+      parameters:
+        - name: min
+          in: path
+          required: true
+          description: Minimum capacity, in number of parcels.
+          schema:
+            type: integer
+            minimum: 0
+            example: 100
+        - name: max
+          in: path
+          required: true
+          description: Maximum capacity, in number of parcels.
+          schema:
+            type: integer
+            minimum: 0
+            example: 300
+      responses:
+        '200':
+          description: A list of matching hubs. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hub'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+  /reports/deliveries/status:
+    get:
+      tags: [Reports]
+      summary: Count deliveries by status
+      description: Returns the number of deliveries in each status.
+      operationId: reportDeliveriesByStatus
+      responses:
+        '200':
+          description: Delivery counts, grouped by status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: integer
+                    description: Number of pending deliveries.
+                    example: 17
+                  in_transit:
+                    type: integer
+                    description: Number of deliveries in transit.
+                    example: 17
+                  delivered:
+                    type: integer
+                    description: Number of delivered deliveries.
+                    example: 16
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /reports/drivers/vehicle:
+    get:
+      tags: [Reports]
+      summary: Count drivers by vehicle type
+      description: Returns the number of drivers who use each vehicle type.
+      operationId: reportDriversByVehicle
+      responses:
+        '200':
+          description: Driver counts, grouped by vehicle type.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Bike:
+                    type: integer
+                    description: Number of drivers who use a bike.
+                    example: 17
+                  Car:
+                    type: integer
+                    description: Number of drivers who use a car.
+                    example: 17
+                  Van:
+                    type: integer
+                    description: Number of drivers who use a van.
+                    example: 16
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /reports/parcels/type:
+    get:
+      tags: [Reports]
+      summary: Count parcels by description
+      description: Returns the number of parcels for each description.
+      operationId: reportParcelsByType
+      responses:
+        '200':
+          description: Parcel counts, grouped by description.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Electronics:
+                    type: integer
+                    description: Number of parcels containing electronics.
+                    example: 17
+                  Books:
+                    type: integer
+                    description: Number of parcels containing books.
+                    example: 17
+                  Clothes:
+                    type: integer
+                    description: Number of parcels containing clothes.
+                    example: 16
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /reports/hubs/capacity:
+    get:
+      tags: [Reports]
+      summary: List hub capacities
+      description: Returns the ID and capacity of every hub.
+      operationId: reportHubCapacity
+      responses:
+        '200':
+          description: A list of hubs with their capacities.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      description: ID of the hub.
+                      example: 1
+                    capacity:
+                      type: integer
+                      description: Number of parcels the hub can hold.
+                      example: 50
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /assignments/delivery/{deliveryId}/driver/{driverId}:
+    post:
+      tags: [Assignments]
+      summary: Assign a driver to a delivery
+      description: Assigns a driver to a delivery. No request body is needed. Because this is a mock API, the assignment isn't saved and the API always returns a success response.
+      operationId: assignDriverToDelivery
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          description: ID of the delivery.
+          schema:
+            type: integer
+            example: 10
+        - name: driverId
+          in: path
+          required: true
+          description: ID of the driver to assign.
+          schema:
+            type: integer
+            example: 3
+      responses:
+        '200':
+          description: The driver was assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /assignments/driver/{driverId}:
+    get:
+      tags: [Assignments]
+      summary: List a driver's deliveries
+      description: Returns all deliveries assigned to the given driver.
+      operationId: listDriverAssignments
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          description: ID of the driver.
+          schema:
+            type: integer
+            example: 3
+      responses:
+        '200':
+          description: A list of the driver's deliveries. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Delivery'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /assignments/hub/{hubId}:
+    get:
+      tags: [Assignments]
+      summary: List a hub's parcels
+      description: Returns all parcels headed to the given hub. This returns the same results as `GET /parcels/hub/{hubId}`.
+      operationId: listHubAssignments
+      parameters:
+        - name: hubId
+          in: path
+          required: true
+          description: ID of the hub.
+          schema:
+            type: integer
+            example: 4
+      responses:
+        '200':
+          description: A list of the hub's parcels. Returns an empty list if none match.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parcel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /tracking/delivery/{deliveryId}:
+    get:
+      tags: [Tracking]
+      summary: Track a delivery
+      description: Returns the tracking status of a delivery. Because this is a mock API, the status is always `in_transit`, whatever the delivery's actual status is.
+      operationId: trackDelivery
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          description: ID of the delivery.
+          schema:
+            type: integer
+            example: 10
+      responses:
+        '200':
+          description: The delivery's tracking status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deliveryId:
+                    type: string
+                    description: ID of the delivery, returned as a string.
+                    example: '10'
+                  status:
+                    type: string
+                    description: Tracking status. Always `in_transit`.
+                    example: in_transit
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /tracking/parcel/{parcelId}:
+    get:
+      tags: [Tracking]
+      summary: Track a parcel
+      description: Returns the current location of a parcel. Because this is a mock API, the location is always `Hub 3`, whatever the parcel's actual destination is.
+      operationId: trackParcel
+      parameters:
+        - name: parcelId
+          in: path
+          required: true
+          description: ID of the parcel.
+          schema:
+            type: integer
+            example: 12
+      responses:
+        '200':
+          description: The parcel's current location.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  parcelId:
+                    type: string
+                    description: ID of the parcel, returned as a string.
+                    example: '12'
+                  location:
+                    type: string
+                    description: Current location of the parcel. Always `Hub 3`.
+                    example: Hub 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique ID of the delivery.
+          example: 1
+        status:
+          type: string
+          description: Current status of the delivery.
+          enum: [pending, in_transit, delivered]
+          example: pending
+        address:
+          type: string
+          description: Delivery address.
+          example: House 1, Street 10
+        customer:
+          type: string
+          description: Name of the customer receiving the delivery.
+          example: Customer 1
+        city:
+          type: string
+          description: City of the delivery address.
+          example: London
+        country:
+          type: string
+          description: Country of the delivery address.
+          example: UK
+        driverId:
+          type: integer
+          description: ID of the driver assigned to the delivery.
+          example: 1
+        date:
+          type: string
+          format: date
+          description: Scheduled delivery date, in YYYY-MM-DD format.
+          example: '2025-12-01'
+
+    Driver:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique ID of the driver.
+          example: 1
+        name:
+          type: string
+          description: Driver's name.
+          example: Driver 1
+        vehicle:
+          type: string
+          description: Type of vehicle the driver uses.
+          enum: [Bike, Car, Van]
+          example: Bike
+        state:
+          type: string
+          description: State or region where the driver operates.
+          example: California
+        country:
+          type: string
+          description: Country where the driver operates.
+          example: USA
+        carModel:
+          type: string
+          description: Make or model of the driver's vehicle.
+          example: Trek
+        availability:
+          type: string
+          description: Whether the driver can take new deliveries.
+          enum: [available, busy]
+          example: available
+        experience:
+          type: integer
+          description: Years of driving experience, from 1 to 15.
+          example: 5
+        rating:
+          type: number
+          description: Driver rating, from 0.0 to 5.0. Ratings are randomly generated each time the server restarts.
+          example: 4.7
+
+    Parcel:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique ID of the parcel.
+          example: 1
+        weight:
+          type: number
+          description: Weight of the parcel in kilograms, from 0.0 to 5.0. Weights are randomly generated each time the server restarts.
+          example: 2.4
+        description:
+          type: string
+          description: Type of item in the parcel.
+          example: Electronics
+        destinationHubId:
+          type: integer
+          description: ID of the hub the parcel is headed to.
+          example: 1
+        deliveryId:
+          type: integer
+          description: ID of the delivery the parcel belongs to.
+          example: 1
+
+    Hub:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique ID of the hub.
+          example: 1
+        city:
+          type: string
+          description: City where the hub is located.
+          example: London
+        country:
+          type: string
+          description: Country where the hub is located.
+          example: UK
+        capacity:
+          type: integer
+          description: Number of parcels the hub can hold.
+          example: 50
+        region:
+          type: string
+          description: Region the hub belongs to.
+          example: Europe
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number.
+          example: 1
+        limit:
+          type: integer
+          description: Number of results per page.
+          example: 10
+        total:
+          type: integer
+          description: Total number of results that match the filters.
+          example: 50
+
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: A short message explaining what went wrong.
+          example: Unauthorized
+  
+  responses:
+    Unauthorized:
+      description: The token is missing or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Unauthorized
+    ServerError:
+      description: A simulated server error. About 10% of GET requests return this on purpose. Retry the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: Random simulated error
+  
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: The token returned by `POST /auth/login`.
