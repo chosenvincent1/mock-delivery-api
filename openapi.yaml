@@ -3,24 +3,9 @@ info:
   title: Delivery API
   version: 1.0.0
   description: |
-    The Delivery API is a mock logistics API for managing deliveries, drivers, parcels, and distribution hubs. Use it to practice working with a REST API or to explore how each endpoint behaves.
+    The Delivery API is a mock REST API for managing deliveries, drivers, parcels, and hubs. This reference covers every endpoint, parameter, and response.
 
-    ## Authentication
-    All endpoints except `POST /auth/login` require a bearer token in the `Authorization` header.
-
-    Because this is a mock API, every user gets the same token: `testtoken123`. You can use it right away, like this:
-      
-    `Authorization: Bearer testtoken123`
-
-    To see how the login flow works, send any username and password to `POST /auth/login`. It returns the same token.
-
-    To use the token in this reference, click **Authorize** and paste `testtoken123`.
-
-    
-    ## Things to know
-    - **Data isn't saved.** POST, PATCH, and DELETE requests return a success response but don't change any data.
-    - **Random errors are intentional.** About 10% of GET requests return a `500` error to simulate real-world failures. Retry the request if you get one.
-    - **The first request may be slow.** The API runs on Render's free tier and sleeps when idle, so the first request after a break can take 30 seconds or more.
+    New to the API? Start with the Quickstart in the Documentation tab.
   contact:
     name: Chosen Vincent
     url: https://www.linkedin.com/in/chosenvincent1
