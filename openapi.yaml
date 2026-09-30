@@ -3,9 +3,9 @@ info:
   title: Delivery API
   version: 1.0.0
   description: |
-    The Delivery API is a mock REST API for managing deliveries, drivers, parcels, and hubs. This reference covers every endpoint, parameter, and response.
+   The Delivery API is a mock REST API for managing deliveries, drivers, parcels, and hubs. This reference covers every endpoint, parameter, and response.
 
-    New to the API? Start with the Quickstart in the Documentation tab.
+    New to the API? Start with the [Quickstart](https://chosen-vincent.gitbook.io/delivery-api-docs/get-started/quickstart).
   contact:
     name: Chosen Vincent
     url: https://www.linkedin.com/in/chosenvincent1
